@@ -170,20 +170,138 @@ VALUES (
 ```
 ![alt text](<Capture d’écran du 2025-04-15 23-29-10.png>)
 
-
-
+## Exemple pour ETREHUMAIN:
 ```sql
+-- Version plus robuste avec liste explicite des colonnes
+INSERT INTO ETREHUMAIN (NUMSEC, NAPPT, NOM, PRENOM, DATENAISSANCE, SEXE)
+VALUES (1, 1, 'Amor', 'Yassin', TO_DATE('20/01/1980','DD/MM/YYYY'), 'M');
+
+-- Insertion des autres enregistrements
+INSERT INTO ETREHUMAIN (NUMSEC, NAPPT, NOM, PRENOM, DATENAISSANCE, SEXE)
+VALUES (2, 1, 'Amor', 'Amina', TO_DATE('14/02/1976','DD/MM/YYYY'), 'F');
 
 ```
+![alt text](<Capture d’écran du 2025-04-15 23-50-05.png>)
 
-
-```sql
-
-```
-
+### 4. Exécution des requêtes
+## Requête simple:
 
 ```sql
-
+SELECT a.NAppt 
+FROM APPT a 
+WHERE a.NAppt BETWEEN 1 AND 3
+ORDER BY a.NAppt;
 ```
+![alt text](<Capture d’écran du 2025-04-15 23-56-42.png>)
+
+## Requête complexe:
+
+```sql
+SELECT a.NAppt, a.Ville, a.Pays, e.NOM, e.PRENOM
+FROM APPT a
+JOIN ETREHUMAIN e ON a.NAppt = e.NAppt 
+WHERE e.NOM LIKE 'M%' OR e.NOM LIKE 'A%'
+ORDER BY a.NAppt, e.NOM;
+```
+
+### 5. Gestion des transactions
+
+```sql
+DECLARE
+  v_count NUMBER;
+BEGIN
+  -- Vérifier si l'enregistrement existe
+  SELECT COUNT(*) INTO v_count FROM APPT WHERE NAppt = 1;
+  
+  IF v_count > 0 THEN
+    -- Début de la transaction
+    SAVEPOINT before_update;
+    
+    -- Mise à jour
+    UPDATE APPT SET Pays = 'MOROCCO' WHERE NAppt = 1;
+    
+    -- Vérification
+    DBMS_OUTPUT.PUT_LINE('Après mise à jour :');
+    FOR rec IN (SELECT * FROM APPT WHERE NAppt = 1) LOOP
+      DBMS_OUTPUT.PUT_LINE('NAppt: ' || rec.NAppt || ', Pays: ' || rec.Pays);
+    END LOOP;
+    
+    -- Annulation
+    ROLLBACK TO SAVEPOINT before_update;
+    
+    -- Vérification après annulation
+    DBMS_OUTPUT.PUT_LINE('Après rollback :');
+    FOR rec IN (SELECT * FROM APPT WHERE NAppt = 1) LOOP
+      DBMS_OUTPUT.PUT_LINE('NAppt: ' || rec.NAppt || ', Pays: ' || rec.Pays);
+    END LOOP;
+    
+    -- Validation
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Transaction terminée avec succès.');
+  ELSE
+    DBMS_OUTPUT.PUT_LINE('Aucun enregistrement avec NAppt = 1 trouvé.');
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    ROLLBACK;
+    DBMS_OUTPUT.PUT_LINE('Erreur: ' || SQLERRM);
+END;
+/
+```
+![alt text](<Capture d’écran du 2025-04-15 23-59-00.png>)
+
+### 6. Gestion des vues
+## Création de la vue avec vérification préalable:
+
+```sql
+-- Suppression de la vue si elle existe déjà
+BEGIN
+  EXECUTE IMMEDIATE 'DROP VIEW vue_amina';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE != -942 THEN -- Code d'erreur "la vue n'existe pas"
+      RAISE;
+    END IF;
+END;
+/
+
+-- Création de la vue
+CREATE VIEW vue_amina AS
+SELECT NUMSEC, NOM, PRENOM 
+FROM ETREHUMAIN 
+WHERE PRENOM = 'Amina'
+WITH CHECK OPTION; -- Empêche les modifications qui ne satisferaient pas la condition
+
+-- Vérification
+SELECT * FROM vue_amina;
+```
+![alt text](<Capture d’écran du 2025-04-16 00-00-28.png>)
+
+## Gestion des utilisateurs:
+
+```sql
+-- Création de l'utilisateur avec vérification préalable
+BEGIN
+  EXECUTE IMMEDIATE 'DROP USER TP2vue CASCADE';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE != -1918 THEN -- Code d'erreur "l'utilisateur n'existe pas"
+      RAISE;
+    END IF;
+END;
+/
+
+CREATE USER TP2vue IDENTIFIED BY TP2vue;
+
+-- Attribution des privilèges
+GRANT CREATE SESSION TO TP2vue;
+GRANT SELECT ON vue_amina TO TP2vue;
+
+-- Vérification des privilèges
+SELECT * FROM DBA_TAB_PRIVS WHERE GRANTEE = 'TP2VUE';
+```
+![alt text](image-1.png)
+
+
 
 
